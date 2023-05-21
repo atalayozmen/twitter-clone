@@ -1,9 +1,59 @@
+import { clerkClient } from "@clerk/nextjs";
+
+import { createTRPCRouter, privateProcedure, publicProcedure } from "~/server/api/trpc";
+import type { User } from "@clerk/nextjs/dist/server";
 import { z } from "zod";
 
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+const filterUsers = ( user: User ) => ({
+  id: user.id,
+  firstName: user.firstName,
+  profileImageUrl: user.profileImageUrl
+});
 
 export const postsRouter = createTRPCRouter({
-  getAll: publicProcedure.query(({ ctx }) => {
-    return ctx.prisma.post.findMany()
+  getAll: publicProcedure.query(async ({ ctx }) => {
+    const posts = await ctx.prisma.post.findMany({
+      take: 100,
+    })
+
+    const initialUsers = await clerkClient.users.getUserList();
+    
+
+    const users = await clerkClient.users.getUserList({
+      userId: posts.map((post) => post.authorId),
+      limit: 100,
+    });
+
+    const filteredUsers = users.map(filterUsers);
+
+    return posts.map((post) => {
+
+      const author = filteredUsers.find((user) => user.id === post.authorId);
+
+      if(!author) {
+        throw new Error("Author not found");
+      }
+
+      return {
+        post,
+        author,
+      };
+    });
+
   }),
+  createPost: privateProcedure.input(z.object({content: z.string().emoji().min(1).max(280)})).mutation(async ({ctx, input}) => {
+    
+    const authorId = ctx.userId;
+
+    const post = await ctx.prisma.post.create({
+      data: {
+        content: input.content,
+        authorId,
+      },
+    });
+
+    return post;
+  }),
+    
+
 });
