@@ -6,18 +6,22 @@ import { useUser, UserButton } from "@clerk/nextjs";
 import { api } from "~/utils/api";
 import type { RouterOutputs } from "~/utils/api";
 import Image from "next/image";
-import { LoadingPage } from "~/components/loading";
+import { LoadingPage, LoadingSpinner } from "~/components/loading";
 import { useState } from "react";
+import toast from "react-hot-toast";
 
 const CreatePostWizard = () => {
   const { user } = useUser();
 
   const ctx = api.useContext();
 
-  const { mutate } = api.posts.createPost.useMutation({
+  const { mutate, isLoading } = api.posts.createPost.useMutation({
     onSuccess: () => {
       setContent("");
       void ctx.posts.getAll.invalidate();
+    },
+    onError: (err) => {
+      toast.error("Spam limit reached. Try again later." + err.message);
     },
   });
   const [content, setContent] = useState("");
@@ -41,7 +45,12 @@ const CreatePostWizard = () => {
         value={content}
         onChange={(e) => setContent(e.target.value)}
       ></input>
-      <button onClick={() => mutate({ content })}>Send</button>
+      {content.length > 0 && !isLoading && (
+        <button disabled={isLoading} onClick={() => mutate({ content })}>
+          Send
+        </button>
+      )}
+      {isLoading && <LoadingSpinner />}
     </div>
   );
 };

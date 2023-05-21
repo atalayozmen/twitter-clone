@@ -1,8 +1,16 @@
-import { clerkClient } from "@clerk/nextjs";
+import { auth, clerkClient } from "@clerk/nextjs";
 
 import { createTRPCRouter, privateProcedure, publicProcedure } from "~/server/api/trpc";
 import type { User } from "@clerk/nextjs/dist/server";
 import { z } from "zod";
+
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(3, "1 m"),
+});
 
 const filterUsers = ( user: User ) => ({
   id: user.id,
@@ -16,9 +24,7 @@ export const postsRouter = createTRPCRouter({
       take: 100,
     })
 
-    const initialUsers = await clerkClient.users.getUserList();
-    
-
+  
     const users = await clerkClient.users.getUserList({
       userId: posts.map((post) => post.authorId),
       limit: 100,
@@ -44,6 +50,12 @@ export const postsRouter = createTRPCRouter({
   createPost: privateProcedure.input(z.object({content: z.string().emoji().min(1).max(280)})).mutation(async ({ctx, input}) => {
     
     const authorId = ctx.userId;
+
+    const { success } = await ratelimit.limit(authorId);
+
+    if(!success) {
+      throw new Error("You are being ratelimited");
+    }
 
     const post = await ctx.prisma.post.create({
       data: {
