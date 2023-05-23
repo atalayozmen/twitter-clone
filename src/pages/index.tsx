@@ -9,6 +9,7 @@ import Image from "next/image";
 import { LoadingPage, LoadingSpinner } from "~/components/loading";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import Link from "next/link";
 
 const CreatePostWizard = () => {
   const { user } = useUser();
@@ -61,21 +62,26 @@ const PostView = (props: PostViewProps) => {
   const { post, author } = props;
 
   return (
-    <div className="flex border-b border-slate-400 p-8" key={post.id}>
-      <div>
-        <Image
-          className="rounded-full"
-          src={author?.profileImageUrl}
-          alt="profile picture"
-          width={56}
-          height={56}
-        ></Image>
+    <Link href={`/post/${post.id}`}>
+      <div className="flex border-b border-slate-400 p-8" key={post.id}>
+        <div>
+          <Link href={`/${author.id}`}>
+            <Image
+              className="rounded-full"
+              src={author?.profileImageUrl}
+              alt="profile picture"
+              width={56}
+              height={56}
+            />
+          </Link>
+        </div>
+
+        <div className="flex flex-col text-slate-300">
+          <div>{author.firstName}</div>
+          <div>{post.content}</div>
+        </div>
       </div>
-      <div className="flex flex-col text-slate-300">
-        <div>{author.firstName}</div>
-        <div>{post.content}</div>
-      </div>
-    </div>
+    </Link>
   );
 };
 
@@ -133,6 +139,7 @@ const Home: NextPage = () => {
               <SignInButton />
             </SignedOut>
           </div>
+
           <Feed />
         </div>
       </main>
